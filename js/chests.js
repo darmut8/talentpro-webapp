@@ -1,18 +1,28 @@
 /* Игра 3: сундуки.
    Без тасования — напряжение строится на очереди вскрытия: сначала медленно
    открываются чужие сундуки, свой уходит на десерт. В раунде 2 в чужом сундуке
-   лежит сумма крупнее (near-miss). Выбранный сундук всегда с деньгами. */
+   лежит сумма крупнее (near-miss). Выбранный сундук всегда с деньгами.
+   Крышка откидывается 3D-поворотом (rotateX), а не подменой картинки. */
 (function(){
 "use strict";
-const CLOSED="📦", OPEN="🎁";
+const CHEST=`<span class="chest">
+    <span class="lid"><svg viewBox="0 0 110 30" preserveAspectRatio="none"><use href="#chestLid"/></svg></span>
+    <span class="body"><svg viewBox="0 0 110 60" preserveAspectRatio="none"><use href="#chestBody"/></svg></span>
+  </span>`;
+// У <use> на symbol размеры задаём явно — иначе символ растянется на весь viewBox.
+const ICON=`<svg viewBox="0 0 110 88">
+    <use href="#chestLid" x="0" y="0" width="110" height="30"/>
+    <use href="#chestBody" x="0" y="29" width="110" height="59"/>
+  </svg>`;
+const COIN=`<svg viewBox="0 0 40 40" style="width:22px;height:22px;vertical-align:-4px"><use href="#coin"/></svg>`;
 
 TP.game({
-  id:"chests", icon:"📦", name:"Сундуки", desc:"Три коробки · выбери свою",
+  id:"chests", icon:ICON, name:"Сундуки", desc:"Три коробки · выбери свою",
   mount(stage,api){
     stage.innerHTML=`<div class="table" id="tbl">
         <div class="tapme" id="tapme">Нажми «Открыть раунд»</div>
-        ${[0,1,2].map(()=>`<div class="slotpos">
-            <span class="cup">${CLOSED}</span><span class="under"></span>
+        ${[0,1,2].map(()=>`<div class="slotpos chestwrap">
+            <span class="cup">${CHEST}</span><span class="under"></span>
           </div>`).join("")}
         <div class="felt"></div>
       </div>`;
@@ -34,8 +44,8 @@ TP.game({
     function reset(){
       boxes.forEach(b=>{
         b.classList.remove("lift","reveal","dim","picked");
-        b.querySelector(".cup").textContent=CLOSED;
-        const u=b.querySelector(".under"); u.className="under"; u.textContent="";
+        b.querySelector(".chest").classList.remove("open");
+        const u=b.querySelector(".under"); u.className="under"; u.innerHTML="";
       });
     }
 
@@ -68,8 +78,9 @@ TP.game({
       for(let i=0;i<others.length;i++){
         const c=others[i], u=c.querySelector(".under");
         const sting = r.round===1 && i===0;     // раунд 2: в первом чужом — больше денег
-        c.classList.add("lift","reveal");
-        c.querySelector(".cup").textContent=OPEN;
+        c.classList.add("reveal");
+        c.querySelector(".chest").classList.add("open");
+        api.sfxLid();
         if(sting){
           u.className="under bigger"; u.textContent=api.decoyBigger(amount).toLocaleString("ru-RU")+" ₽";
           api.sfxNearMiss(); api.notify("warning");
@@ -78,7 +89,6 @@ TP.game({
         }else{
           c.classList.add("dim");
           u.className="under miss"; u.textContent="Пусто";
-          api.sfxStop();
         }
         await api.sleep(sting?1100:650);
       }
@@ -87,10 +97,11 @@ TP.game({
       api.status(r.isLast?"😮 Твой сундук...":"Открываем твой...");
       if(r.isLast){ api.sfxTension(1500); await api.sleep(1500); } else await api.sleep(600);
 
-      box.classList.add("lift","reveal");
-      box.querySelector(".cup").textContent=OPEN;
+      box.classList.add("reveal");
+      box.querySelector(".chest").classList.add("open");
+      api.sfxLid();
       const mine=box.querySelector(".under");
-      mine.className="under"; mine.textContent="💰 "+amount.toLocaleString("ru-RU")+" ₽";
+      mine.className="under"; mine.innerHTML=COIN+" "+amount.toLocaleString("ru-RU")+" ₽";
       tbl.classList.remove("nearmiss");
 
       const isLast=api.complete();

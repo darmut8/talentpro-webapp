@@ -7,14 +7,17 @@
 "use strict";
 const SHUFFLES=[5,8,12];          // по раундам
 const SWAP_MS=[300,240,190];      // и всё быстрее
+const CUP=`<svg viewBox="0 0 100 110"><use href="#cup"/></svg>`;
+const ICON=`<svg viewBox="0 0 100 110"><use href="#cup"/></svg>`;
+const BALL=`<svg viewBox="0 0 40 40" style="width:34px;height:34px"><use href="#coin"/></svg>`;
 
 TP.game({
-  id:"thimbles", icon:"🥤", name:"Напёрстки", desc:"Следи за шариком · угадай чашку",
+  id:"thimbles", icon:ICON, name:"Напёрстки", desc:"Следи за шариком · угадай чашку",
   mount(stage,api){
     stage.innerHTML=`<div class="table" id="tbl">
         <div class="tapme" id="tapme">Смотри внимательно</div>
         ${[0,1,2].map(i=>`<div class="slotpos" data-i="${i}">
-            <span class="cup">🥤</span><span class="under"></span>
+            <span class="cup">${CUP}</span><span class="under"></span>
           </div>`).join("")}
         <div class="felt"></div>
       </div>`;
@@ -26,7 +29,7 @@ TP.game({
     const stepX=()=>tbl.clientWidth/3;
     const place=(instant)=>{
       cups.forEach((c,i)=>{
-        c.style.transition = instant ? "none" : "";
+        if(instant) c.style.transition="none";
         c.style.transform=`translateX(${pos[i]*stepX() + stepX()*0.5 - c.clientWidth/2}px)`;
       });
       if(instant){ void tbl.offsetWidth; cups.forEach(c=>c.style.transition=""); }
@@ -40,8 +43,7 @@ TP.game({
 
     const reset=()=>cups.forEach(c=>{
       c.classList.remove("lift","reveal","dim","picked");
-      c.querySelector(".under").className="under";
-      c.querySelector(".under").textContent="";
+      const u=c.querySelector(".under"); u.className="under"; u.innerHTML="";
     });
 
     async function shuffle(times,ms){
@@ -66,12 +68,12 @@ TP.game({
       // Показываем шарик под случайной чашкой — иллюзия честной слежки.
       const shown=Math.floor(Math.random()*3);
       cups[shown].classList.add("lift","reveal");
-      cups[shown].querySelector(".under").textContent="💰";
-      api.haptic("light");
+      cups[shown].querySelector(".under").innerHTML=BALL;
+      api.haptic("light"); api.sfxLid();
       await api.sleep(1100);
       cups[shown].classList.remove("lift","reveal");
-      cups[shown].querySelector(".under").textContent="";
-      await api.sleep(350);
+      await api.sleep(300);
+      cups[shown].querySelector(".under").innerHTML="";
 
       api.status("🔀 Перемешиваем...");
       await shuffle(SHUFFLES[r.round],SWAP_MS[r.round]);
@@ -96,7 +98,6 @@ TP.game({
       const others=cups.filter(c=>c!==cup);
       const amount=api.amount();
 
-      // Финал — сначала тянем паузу, потом джекпот.
       if(r.isLast){ api.status("😮 Поднимаем..."); api.sfxTension(1400); await api.sleep(1400); }
       else { api.status("Поднимаем..."); await api.sleep(600); }
 
@@ -104,29 +105,29 @@ TP.game({
         // Near-miss: одна из соседних чашек прячет сумму крупнее.
         const sting=others[Math.floor(Math.random()*others.length)];
         const other=others.find(c=>c!==sting);
-        sting.classList.add("lift","reveal");
+        sting.classList.add("lift","reveal"); api.sfxLid();
         const u=sting.querySelector(".under");
         u.className="under bigger"; u.textContent=api.decoyBigger(amount).toLocaleString("ru-RU")+" ₽";
         api.sfxNearMiss(); api.notify("warning");
         api.status("😖 Под соседней было больше!");
         tbl.classList.remove("nearmiss"); void tbl.offsetWidth; tbl.classList.add("nearmiss");
         await api.sleep(1000);
-        other.classList.add("lift","reveal","dim");
-        other.querySelector(".under").className="under miss";
-        other.querySelector(".under").textContent="Пусто";
+        other.classList.add("lift","reveal","dim"); api.sfxLid();
+        const u2=other.querySelector(".under"); u2.className="under miss"; u2.textContent="Пусто";
         await api.sleep(400);
       }else{
-        others.forEach(c=>{
+        others.forEach((c,i)=>{
           c.classList.add("lift","reveal","dim");
           const u=c.querySelector(".under");
           u.className="under miss"; u.textContent="Пусто";
+          api.sfxLid();
         });
         await api.sleep(500);
       }
 
-      cup.classList.add("lift","reveal");
+      cup.classList.add("lift","reveal"); api.sfxLid();
       const mine=cup.querySelector(".under");
-      mine.className="under"; mine.textContent="💰 "+amount.toLocaleString("ru-RU")+" ₽";
+      mine.className="under"; mine.innerHTML=BALL+" "+amount.toLocaleString("ru-RU")+" ₽";
       tbl.classList.remove("nearmiss");
 
       const isLast=api.complete();

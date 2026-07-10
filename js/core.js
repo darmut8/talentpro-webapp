@@ -27,52 +27,82 @@ function weightedPick(tiers){
   for(const [val,w] of tiers){ if((r-=w)<=0) return val; }
   return tiers[0][0];
 }
-function round50(n){ return Math.round(n/50)*50; }
+const round50=n=>Math.round(n/50)*50;
 function amountFor(i){
   if(i===ROUNDS-1) return weightedPick(JACKPOT_TIERS);
   const [lo,hi]=BANDS[i];
   return round50(lo+Math.random()*(hi-lo));
 }
 // Приманки для соседних напёрстков/сундуков: рядом всегда «почти твои» деньги.
-function decoyBigger(amount){ return Math.min(MAX_PRIZE, round50(amount+300+Math.random()*500)); }
-function decoySmaller(amount){ return Math.max(100, round50(amount-150-Math.random()*350)); }
+const decoyBigger=a=>Math.min(MAX_PRIZE, round50(a+300+Math.random()*500));
+const decoySmaller=a=>Math.max(100, round50(a-150-Math.random()*350));
 
 /* ─────────── Звук (Web Audio) ─────────── */
-let AC=null;
-function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } return AC; }
+let AC=null, MASTER=null, NOISE=null;
+function ac(){
+  if(!AC){
+    try{
+      AC=new (window.AudioContext||window.webkitAudioContext)();
+      MASTER=AC.createGain(); MASTER.gain.value=.9; MASTER.connect(AC.destination);
+      // Короткий белый шум — основа «тука» остановки барабана и удара крышки.
+      const len=AC.sampleRate*.4; NOISE=AC.createBuffer(1,len,AC.sampleRate);
+      const d=NOISE.getChannelData(0);
+      for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*(1-i/len);
+    }catch(e){}
+  }
+  return AC;
+}
 function resume(){ ac(); if(AC&&AC.state==="suspended") AC.resume(); }
 function tone(freq,dur,type="sine",vol=.2,delay=0){
   const c=ac(); if(!c) return;
   const o=c.createOscillator(), g=c.createGain();
-  o.type=type; o.frequency.value=freq; o.connect(g); g.connect(c.destination);
+  o.type=type; o.frequency.value=freq; o.connect(g); g.connect(MASTER);
   const t=c.currentTime+delay;
   g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol,t+.01);
   g.gain.exponentialRampToValueAtTime(.0001,t+dur); o.start(t); o.stop(t+dur);
+}
+function noise(dur=.12,vol=.18,freq=1400,delay=0){
+  const c=ac(); if(!c||!NOISE) return;
+  const s=c.createBufferSource(), g=c.createGain(), f=c.createBiquadFilter();
+  s.buffer=NOISE; f.type="lowpass"; f.frequency.value=freq;
+  const t=c.currentTime+delay;
+  g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  s.connect(f); f.connect(g); g.connect(MASTER); s.start(t); s.stop(t+dur);
 }
 function sfxSpin(){
   const c=ac(); if(!c) return;
   const o=c.createOscillator(), g=c.createGain(); o.type="sawtooth";
   o.frequency.setValueAtTime(120,c.currentTime);
   o.frequency.exponentialRampToValueAtTime(440,c.currentTime+1.8);
-  g.gain.setValueAtTime(.07,c.currentTime); g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+2.2);
-  o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime+2.2);
+  g.gain.setValueAtTime(.06,c.currentTime); g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+2.2);
+  o.connect(g); g.connect(MASTER); o.start(); o.stop(c.currentTime+2.2);
 }
-function sfxStop(){ tone(320,.08,"square",.15); }
+// «Тук» с телом: щелчок + низкий удар + короткий шум.
+function sfxStop(){ tone(300,.07,"square",.12); tone(90,.14,"sine",.22); noise(.09,.12,900); }
 // Ползущий вверх гул + учащающиеся «тики»: растянутое ожидание держит сильнее развязки.
 function sfxTension(ms){
   const c=ac(); if(!c) return;
   const o=c.createOscillator(), g=c.createGain(); o.type="sawtooth";
   const t=c.currentTime, d=ms/1000;
   o.frequency.setValueAtTime(180,t); o.frequency.linearRampToValueAtTime(760,t+d);
-  g.gain.setValueAtTime(.03,t); g.gain.linearRampToValueAtTime(.11,t+d*.85);
+  g.gain.setValueAtTime(.03,t); g.gain.linearRampToValueAtTime(.1,t+d*.85);
   g.gain.exponentialRampToValueAtTime(.0001,t+d);
-  o.connect(g); g.connect(c.destination); o.start(t); o.stop(t+d);
-  for(let i=0,p=0;p<d-.1;i++){ p+=Math.max(.07,.34-i*.02); tone(1180,.03,"square",.07,p); }
+  o.connect(g); g.connect(MASTER); o.start(t); o.stop(t+d);
+  for(let i=0,p=0;p<d-.1;i++){ p+=Math.max(.07,.34-i*.02); tone(1180,.03,"square",.06,p); }
 }
-function sfxNearMiss(){ tone(300,.16,"sawtooth",.14); tone(190,.3,"sawtooth",.12,.12); }
-function sfxWin(){ [523,659,784,1047,1319].forEach((f,i)=>tone(f,.35,"triangle",.22,i*.1)); }
-function sfxCoin(){ tone(880,.06,"sine",.12); tone(1320,.08,"sine",.1,.05); }
-function sfxSwap(){ tone(520,.05,"square",.06); }
+function sfxNearMiss(){ tone(300,.16,"sawtooth",.13); tone(190,.34,"sawtooth",.12,.12); noise(.2,.07,500,.1); }
+// Победа: мажорный арпеджио + эхо-повтор октавой выше = «дороже» простого бипа.
+function sfxWin(big){
+  const notes=big?[523,659,784,1047,1319,1568]:[523,659,784,1047];
+  notes.forEach((f,i)=>{
+    tone(f,.4,"triangle",.2,i*.09);
+    tone(f*2,.3,"sine",.07,i*.09+.05);
+  });
+  if(big){ tone(1319,.9,"triangle",.12,.6); noise(.5,.09,3000,.02); }
+}
+function sfxCoin(){ tone(880,.05,"sine",.1); tone(1320,.07,"sine",.08,.04); }
+function sfxSwap(){ tone(520,.05,"square",.05); noise(.05,.05,2200); }
+function sfxLid(){ noise(.22,.16,700); tone(120,.2,"sine",.18); }
 function haptic(t){ try{ tg.HapticFeedback.impactOccurred(t); }catch(e){} }
 function notify(t){ try{ tg.HapticFeedback.notificationOccurred(t); }catch(e){} }
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -80,8 +110,8 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 /* ─────────── DOM ─────────── */
 const $=id=>document.getElementById(id);
 const els={};
-["bal","hub","game","games","stage","winbar","hint","actionBtn","actionSub","claimBtn",
- "backBtn","gameName","roundLabel","overlay","prize","bigwinTitle"].forEach(id=>els[id]=$(id));
+["bal","hub","game","games","stage","winbar","hint","actionBtn","actionSub","claimBtn","backBtn",
+ "gameName","roundLabel","overlay","prize","bigwinTitle","loader","lfill"].forEach(id=>els[id]=$(id));
 
 /* ─────────── Состояние ─────────── */
 const GAMES=[];
@@ -98,22 +128,11 @@ function countUp(el,to,suffix=" ₽"){
   }
   requestAnimationFrame(step);
 }
-function coinShower(isLast){
-  const icons = isLast ? ["💰","💵","💎","⭐"] : ["💵","💎","⭐","✨"];
-  for(let i=0;i<44;i++){
-    const c=document.createElement("div"); c.className="coin";
-    c.textContent=icons[Math.floor(Math.random()*icons.length)];
-    c.style.left=Math.random()*100+"vw"; c.style.fontSize=(16+Math.random()*20)+"px";
-    document.body.appendChild(c);
-    const dur=1200+Math.random()*1400, drift=(Math.random()-.5)*160;
-    c.animate([{transform:"translate(0,-40px) rotate(0)",opacity:1},
-      {transform:`translate(${drift}px,105vh) rotate(${Math.random()*720}deg)`,opacity:.15}],
-      {duration:dur,easing:"cubic-bezier(.3,.1,.6,1)"}).onfinish=()=>c.remove();
-  }
-}
 function showBigWin(amount,isLast){
   els.bigwinTitle.textContent = isLast ? "Джекпот" : "Выигрыш";
-  els.overlay.classList.add("on"); countUp(els.prize,amount,"<span>₽</span>");
+  els.overlay.classList.add("on");
+  const p=els.prize; p.style.animation="none"; void p.offsetWidth; p.style.animation="";
+  countUp(p,amount,"<span>₽</span>");
   setTimeout(()=>els.overlay.classList.remove("on"),2200);
 }
 function updateRoundLabel(){
@@ -122,16 +141,15 @@ function updateRoundLabel(){
 }
 
 /* ─────────── API для игр ─────────── */
-// begin() выдаёт раунд и сумму; complete() закрывает раунд и показывает выигрыш.
 const api={
-  ROUNDS, sleep, tone, haptic, notify, sfxStop, sfxSpin, sfxTension, sfxNearMiss, sfxSwap, resume,
+  ROUNDS, sleep, tone, noise, haptic, notify, resume,
+  sfxStop, sfxSpin, sfxTension, sfxNearMiss, sfxSwap, sfxLid,
   decoyBigger, decoySmaller,
   round:()=>roundIdx,
   isLast:()=>roundIdx===ROUNDS-1,
   amount:()=>pending,          // сумма текущего раунда, выданная begin()
   status:t=>{ els.winbar.innerHTML=t; },
   hint:t=>{ els.hint.innerHTML=t; },
-  // Кнопка внизу: игры с тапом по столу её прячут, слот — использует.
   action:(label,onClick)=>{
     const btn=els.actionBtn;
     if(!label){ btn.style.display="none"; return; }
@@ -149,8 +167,11 @@ const api={
   complete(){
     const isLast=roundIdx===ROUNDS-1;
     wonAmount=pending; roundIdx++; updateRoundLabel();
-    sfxWin(); notify("success"); coinShower(isLast);
+    sfxWin(isLast); notify("success");
+    FX.burst({count:isLast?110:60, power:isLast?1.35:1, gold:isLast});
     els.winbar.innerHTML="🎉 Выигрыш: <b>"+wonAmount.toLocaleString("ru-RU")+" ₽</b>";
+    const bal=els.bal.parentElement;
+    bal.classList.remove("bump"); void bal.offsetWidth; bal.classList.add("bump");
     countUp(els.bal,wonAmount); showBigWin(wonAmount,isLast);
     busy=false;
     if(isLast){
@@ -190,7 +211,7 @@ function startGame(g){
   els.backBtn.disabled=false;
   els.stage.innerHTML="";
   updateRoundLabel();
-  resume(); haptic("light");
+  resume(); haptic("light"); tone(660,.08,"triangle",.12); tone(990,.1,"triangle",.08,.05);
   els.hub.classList.remove("on"); els.game.classList.add("on");
   g.mount(els.stage,api);
 }
@@ -202,10 +223,25 @@ function toHub(){
   els.overlay.classList.remove("on");
 }
 
+/* ─────────── Прелоадер ─────────── */
+function runLoader(){
+  let p=0;
+  const t=setInterval(()=>{
+    p=Math.min(100,p+8+Math.random()*16);
+    els.lfill.style.width=p+"%";
+    if(p>=100){
+      clearInterval(t);
+      setTimeout(()=>els.loader.classList.add("off"),260);
+    }
+  },90);
+}
+
 window.TP={
   game:g=>GAMES.push(g),
   init(){
+    FX.init();
     buildHub();
+    runLoader();
     els.backBtn.onclick=toHub;
     els.claimBtn.onclick=()=>{
       if(finished||!wonAmount) return;

@@ -1,11 +1,22 @@
 /* Игра 1: слот-автомат.
    Раунд 1 — три разных символа, раунд 2 — near-miss (два совпали, третий мимо),
-   раунд 3 — 💰💰💰. Последний барабан всегда «дожимается» дольше. */
+   раунд 3 — 💰💰💰. Последний барабан всегда «дожимается» дольше,
+   на остановке барабан слегка проседает и отыгрывает назад (settle). */
 (function(){
 "use strict";
 const JACKPOT="💰";
 const PLAIN=["🍒","🍋","🔔","⭐","💎","7️⃣","💵"];   // 💰 приберегаем для финала
 const SYM_H=88, VISIBLE=3, REEL_LEN=40;
+
+const ICON=`<svg viewBox="0 0 48 48">
+  <rect x="4" y="8" width="40" height="32" rx="4" fill="url(#gCupDark)" stroke="#B4FF00" stroke-width="1.5"/>
+  <rect x="8" y="13" width="9" height="22" rx="2" fill="#040a02"/>
+  <rect x="19.5" y="13" width="9" height="22" rx="2" fill="#040a02"/>
+  <rect x="31" y="13" width="9" height="22" rx="2" fill="#040a02"/>
+  <circle cx="12.5" cy="24" r="3" fill="#B4FF00"/><circle cx="24" cy="24" r="3" fill="#E6FF7A"/>
+  <circle cx="35.5" cy="24" r="3" fill="#A855F7"/>
+  <rect x="4" y="20" width="40" height="1" fill="#B4FF00" opacity=".5"/>
+</svg>`;
 
 const rnd=()=>PLAIN[Math.floor(Math.random()*PLAIN.length)];
 
@@ -27,6 +38,7 @@ function spinReel(api,el,centerSym,duration,anticipate){
   return new Promise(resolve=>{
     const target=buildStrip(el,centerSym);
     const finalY=-(target-1)*SYM_H, reel=el.parentElement;
+    reel.classList.remove("settle");
     reel.classList.add("blur"); el.style.transform="translateY(0)"; void el.offsetHeight;
     if(anticipate){ reel.classList.add("anticipate"); api.sfxTension(duration); }
     const ease=anticipate ? "cubic-bezier(.1,.75,.05,1)" : "cubic-bezier(.15,.85,.25,1.05)";
@@ -35,6 +47,9 @@ function spinReel(api,el,centerSym,duration,anticipate){
     const done=()=>{
       el.removeEventListener("transitionend",done);
       reel.classList.remove("blur","anticipate");
+      // Отскок: барабан «доседает» на пружине, а не замирает мёртво.
+      el.style.setProperty("--fy",finalY+"px");
+      reel.classList.add("settle");
       api.sfxStop(); api.haptic("light"); resolve();
     };
     el.addEventListener("transitionend",done);
@@ -42,7 +57,7 @@ function spinReel(api,el,centerSym,duration,anticipate){
 }
 
 TP.game({
-  id:"slot", icon:"🎰", name:"Слот", desc:"Три барабана · джекпот в финале",
+  id:"slot", icon:ICON, name:"Слот", desc:"Три барабана · джекпот в финале",
   mount(stage,api){
     stage.innerHTML=`<div class="window">
         <div class="payline" id="payline"></div>
