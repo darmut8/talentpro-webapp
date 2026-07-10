@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TalentPro Casino</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root{
+    --lime:#C6FF3D;      /* фирменный лайм с постера */
+    --lime-dim:#9ecb2e;
+    --purple:#A25BFF;    /* фирменный фиолетовый */
+    --bg:#0a0a0a;
+    --panel:#141414;
+    --panel2:#1d1d1d;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    background:
+      radial-gradient(circle at 50% 0%, rgba(162,91,255,.25), transparent 55%),
+      radial-gradient(circle at 50% 100%, rgba(198,255,61,.15), transparent 55%),
+      var(--bg);
+    color:#fff;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    padding:20px;
+    overflow:hidden;
+  }
+
+  /* Заголовок */
+  .brand{
+    font-size:14px;letter-spacing:4px;color:var(--purple);
+    font-weight:700;text-transform:uppercase;margin-bottom:6px;
+    text-shadow:0 0 12px rgba(162,91,255,.7);
+  }
+  .title{
+    font-size:30px;font-weight:900;text-transform:uppercase;
+    letter-spacing:1px;margin-bottom:4px;
+    color:var(--lime);text-shadow:0 0 18px rgba(198,255,61,.6);
+  }
+  .subtitle{font-size:13px;color:#8a8a8a;margin-bottom:22px;text-align:center;}
+
+  /* Корпус автомата */
+  .machine{
+    width:100%;max-width:360px;
+    background:linear-gradient(160deg,var(--panel2),var(--panel));
+    border:2px solid rgba(198,255,61,.25);
+    border-radius:24px;
+    padding:22px 20px;
+    box-shadow:0 0 40px rgba(162,91,255,.25), inset 0 0 30px rgba(0,0,0,.6);
+  }
+
+  /* Барабаны */
+  .reels{
+    display:flex;gap:10px;justify-content:center;
+    background:#000;border-radius:16px;padding:14px 10px;
+    border:2px solid rgba(255,255,255,.06);
+    box-shadow:inset 0 0 25px rgba(0,0,0,.9);
+  }
+  .reel{
+    flex:1;height:96px;overflow:hidden;position:relative;
+    background:linear-gradient(180deg,#0f0f0f,#1a1a1a);
+    border-radius:10px;
+    border:1px solid rgba(198,255,61,.15);
+  }
+  .reel::before,.reel::after{
+    content:"";position:absolute;left:0;right:0;height:26px;z-index:2;pointer-events:none;
+  }
+  .reel::before{top:0;background:linear-gradient(180deg,#000,transparent);}
+  .reel::after{bottom:0;background:linear-gradient(0deg,#000,transparent);}
+  .strip{
+    display:flex;flex-direction:column;align-items:center;
+    position:absolute;top:0;left:0;right:0;
+  }
+  .sym{height:96px;display:flex;align-items:center;justify-content:center;font-size:52px;}
+
+  .spinning{animation:spin .35s linear infinite;}
+  @keyframes spin{from{transform:translateY(0);}to{transform:translateY(-288px);}}
+
+  /* Табло выигрыша */
+  .display{
+    margin-top:16px;text-align:center;min-height:54px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .display .amount{
+    font-size:30px;font-weight:900;color:var(--lime);
+    text-shadow:0 0 20px rgba(198,255,61,.8);
+    opacity:0;transform:scale(.6);
+  }
+  .display .amount.show{
+    opacity:1;transform:scale(1);
+    transition:all .4s cubic-bezier(.2,1.6,.4,1);
+  }
+  .display .hint{font-size:13px;color:#7a7a7a;letter-spacing:1px;}
+
+  /* Кнопки */
+  .btn{
+    width:100%;max-width:360px;margin-top:16px;
+    border:none;border-radius:16px;padding:17px;
+    font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:1px;
+    cursor:pointer;transition:transform .1s ease, box-shadow .2s;
+  }
+  .btn:active{transform:scale(.97);}
+  .btn-spin{
+    background:linear-gradient(135deg,var(--lime),var(--lime-dim));
+    color:#0a0a0a;box-shadow:0 8px 24px rgba(198,255,61,.35);
+  }
+  .btn-claim{
+    background:linear-gradient(135deg,var(--purple),#7a3dff);
+    color:#fff;box-shadow:0 8px 24px rgba(162,91,255,.45);
+    display:none;
+  }
+  .btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+
+  /* Лампочки-огни */
+  .lights{display:flex;gap:8px;justify-content:center;margin-bottom:14px;}
+  .light{width:10px;height:10px;border-radius:50%;background:var(--lime);
+    box-shadow:0 0 10px var(--lime);animation:blink 1s infinite alternate;}
+  .light:nth-child(2){background:var(--purple);box-shadow:0 0 10px var(--purple);animation-delay:.2s;}
+  .light:nth-child(3){animation-delay:.4s;}
+  .light:nth-child(4){background:var(--purple);box-shadow:0 0 10px var(--purple);animation-delay:.6s;}
+  .light:nth-child(5){animation-delay:.8s;}
+  @keyframes blink{from{opacity:.3;}to{opacity:1;}}
+
+  .confetti{position:fixed;top:-10px;width:8px;height:14px;z-index:99;pointer-events:none;}
+</style>
+</head>
+<body>
+  <div class="brand">TalentPro</div>
+  <div class="title">🎰 Джекпот-бонус</div>
+  <div class="subtitle">Крути барабан и забери гарантированный бонус!</div>
+
+  <div class="machine">
+    <div class="lights">
+      <span class="light"></span><span class="light"></span>
+      <span class="light"></span><span class="light"></span><span class="light"></span>
+    </div>
+
+    <div class="reels">
+      <div class="reel"><div class="strip" id="r0"></div></div>
+      <div class="reel"><div class="strip" id="r1"></div></div>
+      <div class="reel"><div class="strip" id="r2"></div></div>
+    </div>
+
+    <div class="display">
+      <span class="hint" id="hint">Нажми «Крутить» 👇</span>
+      <span class="amount" id="amount"></span>
+    </div>
+  </div>
+
+  <button class="btn btn-spin" id="spinBtn">🎲 Крутить</button>
+  <button class="btn btn-claim" id="claimBtn">💰 Забрать бонус</button>
+
+<script>
+  const tg = window.Telegram.WebApp;
+  tg.ready();
+  tg.expand();
+
+  // Символы барабана. Джекпот-символ 💰 всегда выпадает в итоге.
+  const SYMBOLS = ["💎","7️⃣","🍒","⭐","🔔","💰"];
+  const JACKPOT = "💰";
+  const AMOUNTS = [2000,2500,3000,3500,4000,4500,5000]; // кратно 500
+
+  let wonAmount = 0;
+  let spinning = false;
+
+  // Заполняем ленту случайными символами (много, чтобы крутилось).
+  function buildStrip(el){
+    el.innerHTML = "";
+    for(let i=0;i<15;i++){
+      const d=document.createElement("div");
+      d.className="sym";
+      d.textContent=SYMBOLS[Math.floor(Math.random()*SYMBOLS.length)];
+      el.appendChild(d);
+    }
+    el.style.transform="translateY(0)";
+  }
+  const strips=[document.getElementById("r0"),document.getElementById("r1"),document.getElementById("r2")];
+  strips.forEach(buildStrip);
+
+  const spinBtn=document.getElementById("spinBtn");
+  const claimBtn=document.getElementById("claimBtn");
+  const amountEl=document.getElementById("amount");
+  const hintEl=document.getElementById("hint");
+
+  function haptic(type){ try{ tg.HapticFeedback.impactOccurred(type);}catch(e){} }
+
+  spinBtn.addEventListener("click",()=>{
+    if(spinning) return;
+    spinning=true;
+    spinBtn.disabled=true;
+    hintEl.style.display="none";
+    amountEl.classList.remove("show");
+    haptic("medium");
+
+    // Запускаем вращение всех барабанов.
+    strips.forEach(s=>s.classList.add("spinning"));
+
+    // Останавливаем барабаны по очереди — эффект «настоящего» слота.
+    const stops=[900,1500,2100];
+    strips.forEach((s,i)=>{
+      setTimeout(()=>{
+        s.classList.remove("spinning");
+        // Ставим джекпот-символ по центру видимой зоны.
+        s.innerHTML="";
+        for(let k=0;k<3;k++){
+          const d=document.createElement("div");
+          d.className="sym";
+          d.textContent = k===1 ? JACKPOT : SYMBOLS[Math.floor(Math.random()*5)];
+          s.appendChild(d);
+        }
+        s.style.transform="translateY(0)";
+        haptic("light");
+
+        // Последний барабан остановился — показываем выигрыш.
+        if(i===strips.length-1){
+          wonAmount=AMOUNTS[Math.floor(Math.random()*AMOUNTS.length)];
+          setTimeout(showWin,350);
+        }
+      },stops[i]);
+    });
+  });
+
+  function showWin(){
+    haptic("heavy");
+    amountEl.textContent="+ "+wonAmount.toLocaleString("ru-RU")+" ₽";
+    amountEl.classList.add("show");
+    spinBtn.style.display="none";
+    claimBtn.style.display="block";
+    launchConfetti();
+    try{ tg.HapticFeedback.notificationOccurred("success"); }catch(e){}
+  }
+
+  // Кнопка «Забрать» — отправляем сумму боту и закрываем Mini App.
+  claimBtn.addEventListener("click",()=>{
+    haptic("medium");
+    tg.sendData(JSON.stringify({bonus:wonAmount}));
+    tg.close();
+  });
+
+  // Простое конфетти для эффекта праздника.
+  function launchConfetti(){
+    const colors=["#C6FF3D","#A25BFF","#ffffff","#7a3dff"];
+    for(let i=0;i<40;i++){
+      const c=document.createElement("div");
+      c.className="confetti";
+      c.style.left=Math.random()*100+"vw";
+      c.style.background=colors[Math.floor(Math.random()*colors.length)];
+      c.style.transform="rotate("+Math.random()*360+"deg)";
+      document.body.appendChild(c);
+      const fall=800+Math.random()*1200;
+      c.animate(
+        [{top:"-10px",opacity:1},{top:"105vh",opacity:.2}],
+        {duration:fall,easing:"ease-in"}
+      ).onfinish=()=>c.remove();
+    }
+  }
+</script>
+</body>
+</html>
