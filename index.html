@@ -101,6 +101,14 @@
   .sym{height:88px;display:flex;align-items:center;justify-content:center;font-size:52px;
     filter:drop-shadow(0 0 6px rgba(180,255,0,.25));}
   .reel.blur .strip{filter:blur(3px);}
+  /* Антиципация: последний барабан «дожимается» медленно, рамка пульсирует. */
+  .reel.anticipate{border-color:var(--acid);box-shadow:0 0 22px rgba(180,255,0,.45) inset,0 0 18px rgba(180,255,0,.35);
+    animation:antic .5s ease-in-out infinite alternate;}
+  @keyframes antic{from{box-shadow:0 0 10px rgba(180,255,0,.25) inset,0 0 10px rgba(180,255,0,.2);}
+    to{box-shadow:0 0 26px rgba(180,255,0,.55) inset,0 0 22px rgba(180,255,0,.45);}}
+  /* Промах впритык: линия дёргается красным. */
+  .reel.nearmiss{animation:nmshake .34s ease 2;border-color:rgba(255,80,80,.6);}
+  @keyframes nmshake{0%,100%{transform:translateX(0);}25%{transform:translateX(-3px);}75%{transform:translateX(3px);}}
   .window::before,.window::after{content:"";position:absolute;left:0;right:0;height:66px;z-index:3;pointer-events:none;}
   .window::before{top:0;background:linear-gradient(180deg,#000,transparent);}
   .window::after{bottom:0;background:linear-gradient(0deg,#000,transparent);}
@@ -212,27 +220,48 @@ const SYMBOLS=["🍒","🍋","🔔","⭐","💎","7️⃣","💵","💰"];
 const JACKPOT="💰";
 // Символы обычных спинов: 💰 приберегаем строго для финального джекпота.
 const PLAIN=SYMBOLS.filter(s=>s!==JACKPOT);
-// ── Маркетинговая эскалация ──
-// Суммы случайны, но полосы не пересекаются: каждый спин строго больше
-// предыдущего. Психология: малый первый выигрыш («нога в двери») → растущая
-// дофаминовая лестница → пик в конце (peak-end) → сразу CTA пока «бонус активен».
-const BANDS=[[300,700],[900,1400],[1800,2500]];   // ₽: спин 1, 2, джекпот
-const SPINS=BANDS.length;
+// ── Экономика бонуса ──
+// Финальный бонус — взвешенная лотерея: почти все получают 1000-1500 ₽,
+// крупные суммы редки. Так средняя выплата остаётся предсказуемой,
+// а «сорвал 3000» звучит как реальная возможность, а не как обещание всем.
+const JACKPOT_TIERS=[            // [сумма ₽, вес]
+  [1000, 34],
+  [1300, 26],
+  [1500, 20],
+  [2000, 12],
+  [2500,  6],
+  [3000,  2],                    // ~2% — редкий «крупняк», о нём и рассказывают друзьям
+];
+// Мелкие выигрыши первых спинов: нижняя граница 200 ₽.
+// Верх полосы спина 2 ниже минимального джекпота (1000) — лестница не ломается.
+const BANDS=[[200,500],[600,900]];    // ₽: спин 1 и спин 2
+const SPINS=3;                        // третий спин — всегда джекпот
 const SYM_H=88, VISIBLE=3, REEL_LEN=40;
 let spinIndex=0, finished=false, wonAmount=0, spinning=false;
 
-// Сумма спина: случайная внутри своей полосы, кратна 50 — «живые» числа.
+function weightedPick(tiers){
+  const total=tiers.reduce((s,[,w])=>s+w,0);
+  let r=Math.random()*total;
+  for(const [val,w] of tiers){ if((r-=w)<=0) return val; }
+  return tiers[0][0];
+}
+
+// Сумма спина: случайная, кратна 50 — «живые» числа вместо круглых обещаний.
 function amountFor(i){
+  if(i===SPINS-1) return weightedPick(JACKPOT_TIERS);
   const [lo,hi]=BANDS[i];
   return Math.round((lo+Math.random()*(hi-lo))/50)*50;
 }
 
-// Значки на линии: обычный спин — три РАЗНЫХ символа, финал — три 💰.
-function symbolsFor(isLast){
-  if(isLast) return [JACKPOT,JACKPOT,JACKPOT];
+// Значки на линии.
+//   спин 1 — три разных (спокойный старт),
+//   спин 2 — near-miss: два одинаковых + один мимо («чуть не сорвал»),
+//   спин 3 — 💰💰💰.
+function symbolsFor(i){
+  if(i===SPINS-1) return [JACKPOT,JACKPOT,JACKPOT];
   const pool=PLAIN.slice();
-  for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
-  return pool.slice(0,3);
+  for(let k=pool.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[pool[k],pool[j]]=[pool[j],pool[k]];}
+  return i===1 ? [pool[0],pool[0],pool[1]] : pool.slice(0,3);
 }
 
 /* ═══════════════ Звук (Web Audio) ═══════════════ */
@@ -253,6 +282,18 @@ function sfxSpin(){ const c=ac(); if(!c) return;
   g.gain.setValueAtTime(.07,c.currentTime); g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+2.2);
   o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime+2.2); }
 function sfxStop(){ tone(320,.08,"square",.15); }
+// Ползущий вверх гул под последний барабан + учащающиеся «тики».
+function sfxTension(ms){
+  const c=ac(); if(!c) return;
+  const o=c.createOscillator(), g=c.createGain(); o.type="sawtooth";
+  const t=c.currentTime, d=ms/1000;
+  o.frequency.setValueAtTime(180,t); o.frequency.linearRampToValueAtTime(760,t+d);
+  g.gain.setValueAtTime(.03,t); g.gain.linearRampToValueAtTime(.11,t+d*.85);
+  g.gain.exponentialRampToValueAtTime(.0001,t+d);
+  o.connect(g); g.connect(c.destination); o.start(t); o.stop(t+d);
+  for(let i=0,p=0;p<d-.1;i++){ p+=Math.max(.07,.34-i*.02); tone(1180,.03,"square",.07,p); }
+}
+function sfxNearMiss(){ tone(300,.16,"sawtooth",.14); tone(190,.3,"sawtooth",.12,.12); }
 function sfxWin(){ [523,659,784,1047,1319].forEach((f,i)=>tone(f,.35,"triangle",.22,i*.1)); }
 function sfxCoin(){ tone(880,.06,"sine",.12); tone(1320,.08,"sine",.1,.05); }
 function haptic(t){ try{ tg.HapticFeedback.impactOccurred(t); }catch(e){} }
@@ -270,14 +311,22 @@ function buildStrip(el,centerSym){
   return target;
 }
 strips.forEach(el=>{el.innerHTML="";for(let i=0;i<VISIBLE+1;i++){const d=document.createElement("div");d.className="sym";d.textContent=rnd();el.appendChild(d);}});
-function spinReel(el,centerSym,duration){
+// anticipate — последний барабан ползёт заметно дольше и с подсветкой:
+// растянутое ожидание перед развязкой держит внимание сильнее самой развязки.
+function spinReel(el,centerSym,duration,anticipate=false){
   return new Promise(resolve=>{
     const target=buildStrip(el,centerSym);
     const finalY=-(target-1)*SYM_H, reel=el.parentElement;
     reel.classList.add("blur"); el.style.transform="translateY(0)"; void el.offsetHeight;
-    el.style.transition=`transform ${duration}ms cubic-bezier(.15,.85,.25,1.05)`;
+    if(anticipate){ reel.classList.add("anticipate"); sfxTension(duration); }
+    const ease=anticipate ? "cubic-bezier(.1,.75,.05,1)" : "cubic-bezier(.15,.85,.25,1.05)";
+    el.style.transition=`transform ${duration}ms ${ease}`;
     el.style.transform=`translateY(${finalY}px)`;
-    const done=()=>{el.removeEventListener("transitionend",done);reel.classList.remove("blur");sfxStop();haptic("light");resolve();};
+    const done=()=>{
+      el.removeEventListener("transitionend",done);
+      reel.classList.remove("blur","anticipate");
+      sfxStop(); haptic("light"); resolve();
+    };
     el.addEventListener("transitionend",done);
   });
 }
@@ -294,11 +343,20 @@ async function doSpin(){
   spinning=true; spinBtn.disabled=true;
   hint.textContent="Крутим... удача рядом"; winbar.textContent="🎰 Вращение...";
   ac(); if(AC&&AC.state==="suspended") AC.resume(); sfxSpin(); haptic("medium");
-  const isLast=spinIndex===SPINS-1, syms=symbolsFor(isLast);
+  const isLast=spinIndex===SPINS-1, syms=symbolsFor(spinIndex);
+  const nearMiss=syms[0]===syms[1]&&syms[1]!==syms[2];   // два совпали — третий решает
   await spinReel(strips[0],syms[0],1200);
   await spinReel(strips[1],syms[1],1700);
-  winbar.textContent="😮 Ещё чуть-чуть...";
-  await spinReel(strips[2],syms[2],2500);
+  // Третий барабан всегда «дожимается» дольше: и на джекпоте, и на промахе впритык.
+  winbar.textContent = (isLast||nearMiss) ? "😮 Два совпало... третий решает" : "Крутим...";
+  await spinReel(strips[2],syms[2],isLast?3400:(nearMiss?3000:2200),isLast||nearMiss);
+  if(nearMiss){
+    const reel=strips[2].parentElement;
+    reel.classList.remove("nearmiss"); void reel.offsetWidth; reel.classList.add("nearmiss");
+    sfxNearMiss(); notify("warning");
+    winbar.textContent="😖 Мимо на один символ!";
+    await new Promise(r=>setTimeout(r,850));
+  }
   payline.classList.remove("on"); void payline.offsetWidth; payline.classList.add("on");
   // Сумма случайна внутри полосы спина — растёт от спина к спину.
   wonAmount=amountFor(spinIndex);
@@ -318,7 +376,7 @@ function onWin(isLast){
     // Эскалация: claim ещё ЗАКРЫТ — гоним пройти всю лестницу.
     hint.textContent = spinIndex===1
       ? "🔥 Отличный старт! Крути ещё — суммы растут"
-      : "⚡ Уже больше! Финальный спин — там максимум";
+      : "😤 Джекпот был в одном символе! Финальный спин — до 3 000 ₽";
     spinBtn.disabled=false;
     const label=spinBtn.querySelector("span").firstChild;
     if(label) label.textContent="Крутить ещё";
