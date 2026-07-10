@@ -196,7 +196,7 @@
   </div>
 
   <div class="overlay" id="overlay">
-    <div class="bigwin">Джекпот</div>
+    <div class="bigwin" id="bigwinTitle">Джекпот</div>
     <div class="prize" id="prize">0 <span>₽</span></div>
     <div class="ovsub">Бонус зачислен</div>
   </div>
@@ -210,9 +210,14 @@ try{ tg.setHeaderColor("#000000"); tg.setBackgroundColor("#000000"); }catch(e){}
 /* ═══════════════ Настройки ═══════════════ */
 const SYMBOLS=["🍒","🍋","🔔","⭐","💎","7️⃣","💵","💰"];
 const JACKPOT="💰";
-const AMOUNTS=[2000,2500,3000,3500,4000,4500,5000];
+// ── Маркетинговая эскалация ──
+// Каждый спин выигрыш БОЛЬШЕ предыдущего, финальный = забираемый бонус.
+// Психология: малый первый выигрыш («нога в двери») → растущая дофаминовая
+// лестница → пик в конце (peak-end) → сразу CTA пока «бонус активен».
+const LADDER=[500, 900, 1500];         // ₽ по спинам (строго по возрастанию)
+const FINAL_BONUS=LADDER[LADDER.length-1];
 const SYM_H=88, VISIBLE=3, REEL_LEN=40;
-let spinsLeft=3, finished=false, wonAmount=0, spinning=false;
+let spinIndex=0, finished=false, wonAmount=0, spinning=false;
 
 /* ═══════════════ Звук (Web Audio) ═══════════════ */
 let AC=null;
@@ -264,32 +269,50 @@ function spinReel(el,centerSym,duration){
 const spinBtn=document.getElementById("spinBtn"),claimBtn=document.getElementById("claimBtn"),
   winbar=document.getElementById("winbar"),hint=document.getElementById("hint"),
   spinsLeftEl=document.getElementById("spinsLeft"),balEl=document.getElementById("bal"),payline=document.getElementById("payline");
-function updateSpins(){ spinsLeftEl.textContent = spinsLeft>0 ? (spinsLeft+" спин"+(spinsLeft===1?"":spinsLeft<5?"а":"ов")) : ""; }
+function updateSpins(){ spinsLeftEl.textContent = spinIndex<LADDER.length ? ("СПИН "+(spinIndex+1)+"/"+LADDER.length) : ""; }
 updateSpins();
 
 async function doSpin(){
-  if(spinning||finished) return;
+  if(spinning||finished||spinIndex>=LADDER.length) return;
   spinning=true; spinBtn.disabled=true;
   hint.textContent="Крутим... удача рядом"; winbar.textContent="🎰 Вращение...";
   ac(); if(AC&&AC.state==="suspended") AC.resume(); sfxSpin(); haptic("medium");
-  const isLast=spinsLeft<=1;
   await spinReel(strips[0],JACKPOT,1200);
   await spinReel(strips[1],JACKPOT,1700);
   winbar.textContent="😮 Ещё чуть-чуть...";
   await spinReel(strips[2],JACKPOT,2500);
   payline.classList.remove("on"); void payline.offsetWidth; payline.classList.add("on");
-  wonAmount=AMOUNTS[Math.floor(Math.random()*AMOUNTS.length)];
-  spinsLeft--; updateSpins(); onWin(isLast); spinning=false;
+  // Сумма берётся из лестницы по номеру спина — строго растёт.
+  wonAmount=LADDER[spinIndex];
+  spinIndex++;
+  const isLast=spinIndex>=LADDER.length;
+  updateSpins(); onWin(isLast); spinning=false;
 }
 function onWin(isLast){
   sfxWin(); notify("success"); coinShower();
   winbar.innerHTML="🎉 Выигрыш: <b>"+wonAmount.toLocaleString("ru-RU")+" ₽</b>";
-  countUp(balEl,wonAmount); showBigWin(wonAmount);
-  if(isLast){ spinBtn.style.display="none"; hint.textContent="Забери свой бонус"; claimBtn.style.display="block"; }
-  else{ hint.textContent="Крути ещё — сумма может вырасти"; spinBtn.disabled=false; claimBtn.style.display="block"; }
+  countUp(balEl,wonAmount); showBigWin(wonAmount,isLast);
+  if(isLast){
+    // Пик достигнут → открываем CTA + микро-ургентность (loss aversion).
+    spinBtn.style.display="none";
+    hint.innerHTML="⏳ Бонус активен ограниченное время — забери!";
+    claimBtn.style.display="block";
+  }else{
+    // Эскалация: claim ещё ЗАКРЫТ — гоним пройти всю лестницу.
+    hint.textContent = spinIndex===1
+      ? "🔥 Отличный старт! Крути ещё — суммы растут"
+      : "⚡ Уже больше! Финальный спин — там максимум";
+    spinBtn.disabled=false;
+    const label=spinBtn.querySelector("span").firstChild;
+    if(label) label.textContent="Крутить ещё";
+  }
 }
-const overlay=document.getElementById("overlay"),prize=document.getElementById("prize");
-function showBigWin(amount){ overlay.classList.add("on"); countUp(prize,amount,"<span>₽</span>"); setTimeout(()=>overlay.classList.remove("on"),2200); }
+const overlay=document.getElementById("overlay"),prize=document.getElementById("prize"),bigwinTitle=document.getElementById("bigwinTitle");
+function showBigWin(amount,isLast){
+  bigwinTitle.textContent = isLast ? "Джекпот" : "Выигрыш";
+  overlay.classList.add("on"); countUp(prize,amount,"<span>₽</span>");
+  setTimeout(()=>overlay.classList.remove("on"),2200);
+}
 function countUp(el,to,suffix=" ₽"){
   const dur=1000, start=performance.now();
   function step(now){ const p=Math.min(1,(now-start)/dur);
