@@ -213,21 +213,27 @@ const JACKPOT="💰";
 // Символы обычных спинов: 💰 приберегаем строго для финального джекпота.
 const PLAIN=SYMBOLS.filter(s=>s!==JACKPOT);
 // ── Маркетинговая эскалация ──
-// Каждый спин выигрыш БОЛЬШЕ предыдущего, финальный = забираемый бонус.
-// Психология: малый первый выигрыш («нога в двери») → растущая дофаминовая
-// лестница → пик в конце (peak-end) → сразу CTA пока «бонус активен».
-const LADDER=[500, 900, 1500];         // ₽ по спинам (строго по возрастанию)
-const FINAL_BONUS=LADDER[LADDER.length-1];
+// Суммы случайны, но полосы не пересекаются: каждый спин строго больше
+// предыдущего. Психология: малый первый выигрыш («нога в двери») → растущая
+// дофаминовая лестница → пик в конце (peak-end) → сразу CTA пока «бонус активен».
+const BANDS=[[300,700],[900,1400],[1800,2500]];   // ₽: спин 1, 2, джекпот
+const SPINS=BANDS.length;
 const SYM_H=88, VISIBLE=3, REEL_LEN=40;
 let spinIndex=0, finished=false, wonAmount=0, spinning=false;
 
-// Выигрышный символ каждого спина: случайный и НЕ повторяется,
-// последний всегда 💰 — чтобы джекпот читался как отдельное событие.
-const WIN_SYMBOLS=(()=>{
+// Сумма спина: случайная внутри своей полосы, кратна 50 — «живые» числа.
+function amountFor(i){
+  const [lo,hi]=BANDS[i];
+  return Math.round((lo+Math.random()*(hi-lo))/50)*50;
+}
+
+// Значки на линии: обычный спин — три РАЗНЫХ символа, финал — три 💰.
+function symbolsFor(isLast){
+  if(isLast) return [JACKPOT,JACKPOT,JACKPOT];
   const pool=PLAIN.slice();
   for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
-  return pool.slice(0,LADDER.length-1).concat(JACKPOT);
-})();
+  return pool.slice(0,3);
+}
 
 /* ═══════════════ Звук (Web Audio) ═══════════════ */
 let AC=null;
@@ -280,24 +286,23 @@ function spinReel(el,centerSym,duration){
 const spinBtn=document.getElementById("spinBtn"),claimBtn=document.getElementById("claimBtn"),
   winbar=document.getElementById("winbar"),hint=document.getElementById("hint"),
   spinsLeftEl=document.getElementById("spinsLeft"),balEl=document.getElementById("bal"),payline=document.getElementById("payline");
-function updateSpins(){ spinsLeftEl.textContent = spinIndex<LADDER.length ? ("СПИН "+(spinIndex+1)+"/"+LADDER.length) : ""; }
+function updateSpins(){ spinsLeftEl.textContent = spinIndex<SPINS ? ("СПИН "+(spinIndex+1)+"/"+SPINS) : ""; }
 updateSpins();
 
 async function doSpin(){
-  if(spinning||finished||spinIndex>=LADDER.length) return;
+  if(spinning||finished||spinIndex>=SPINS) return;
   spinning=true; spinBtn.disabled=true;
   hint.textContent="Крутим... удача рядом"; winbar.textContent="🎰 Вращение...";
   ac(); if(AC&&AC.state==="suspended") AC.resume(); sfxSpin(); haptic("medium");
-  const sym=WIN_SYMBOLS[spinIndex];
-  await spinReel(strips[0],sym,1200);
-  await spinReel(strips[1],sym,1700);
+  const isLast=spinIndex===SPINS-1, syms=symbolsFor(isLast);
+  await spinReel(strips[0],syms[0],1200);
+  await spinReel(strips[1],syms[1],1700);
   winbar.textContent="😮 Ещё чуть-чуть...";
-  await spinReel(strips[2],sym,2500);
+  await spinReel(strips[2],syms[2],2500);
   payline.classList.remove("on"); void payline.offsetWidth; payline.classList.add("on");
-  // Сумма берётся из лестницы по номеру спина — строго растёт.
-  wonAmount=LADDER[spinIndex];
+  // Сумма случайна внутри полосы спина — растёт от спина к спину.
+  wonAmount=amountFor(spinIndex);
   spinIndex++;
-  const isLast=spinIndex>=LADDER.length;
   updateSpins(); onWin(isLast); spinning=false;
 }
 function onWin(isLast){
