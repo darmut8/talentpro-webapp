@@ -5,161 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>TalentPro Casino</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>
-  :root{
-    --acid:#B4FF00;        /* кислотно-зелёный с постера */
-    --acid2:#C6FF3D;
-    --acid-dim:#7ea800;
-    --purple:#A855F7;      /* электро-фиолетовый */
-    --purple2:#7C3AED;
-    --bg:#000000;
-    --panel:#0a0c0a;
-    --line:rgba(180,255,0,.18);
-  }
-  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;}
-  html,body{height:100%;overflow:hidden;}
-  body{
-    font-family:'Arial Black','Segoe UI',system-ui,sans-serif;
-    color:#fff;background:var(--bg);
-    display:flex;flex-direction:column;min-height:100vh;min-height:100dvh;position:relative;
-  }
-
-  /* ── Фон: неон-свечение + грид + сканлайны + зерно ── */
-  .bg{position:fixed;inset:0;z-index:0;overflow:hidden;background:var(--bg);}
-  .bg::before{content:"";position:absolute;inset:-40%;
-    background:
-      radial-gradient(circle at 50% -5%, rgba(180,255,0,.18), transparent 45%),
-      radial-gradient(circle at 85% 90%, rgba(168,85,247,.22), transparent 45%);
-    animation:breathe 8s ease-in-out infinite alternate;}
-  @keyframes breathe{from{opacity:.7;}to{opacity:1;}}
-  .grid{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.35;
-    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
-    background-size:42px 42px;
-    mask-image:radial-gradient(circle at 50% 40%,#000 35%,transparent 78%);
-    -webkit-mask-image:radial-gradient(circle at 50% 40%,#000 35%,transparent 78%);}
-  .scan{position:fixed;inset:0;z-index:2;pointer-events:none;opacity:.5;
-    background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.35) 2px 4px);
-    animation:scanmove 8s linear infinite;}
-  @keyframes scanmove{from{background-position-y:0;}to{background-position-y:200px;}}
-  .grain{position:fixed;inset:0;z-index:3;opacity:.06;pointer-events:none;
-    background-image:radial-gradient(#fff 1px,transparent 1px);background-size:3px 3px;}
-
-  /* ── HUD-скобки по углам экрана ── */
-  .hud{position:fixed;width:26px;height:26px;z-index:4;pointer-events:none;}
-  .hud.tl{top:10px;left:10px;border-top:2px solid var(--acid);border-left:2px solid var(--acid);}
-  .hud.tr{top:10px;right:10px;border-top:2px solid var(--purple);border-right:2px solid var(--purple);}
-  .hud.bl{bottom:10px;left:10px;border-bottom:2px solid var(--purple);border-left:2px solid var(--purple);}
-  .hud.br{bottom:10px;right:10px;border-bottom:2px solid var(--acid);border-right:2px solid var(--acid);}
-
-  .wrap{position:relative;z-index:5;flex:1;display:flex;flex-direction:column;
-    padding:20px 18px calc(20px + env(safe-area-inset-bottom));gap:12px;}
-
-  /* ── Шапка ── */
-  .top{display:flex;align-items:center;justify-content:space-between;}
-  .logo{font-style:italic;font-weight:900;font-size:22px;letter-spacing:.5px;
-    color:var(--purple);text-shadow:0 0 14px rgba(168,85,247,.6);transform:skewX(-4deg);}
-  .logo i{color:var(--acid);font-style:italic;text-shadow:0 0 14px rgba(180,255,0,.6);}
-  .balance{position:relative;padding:8px 14px;background:#060806;
-    border:1.5px solid var(--purple);clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
-    box-shadow:0 0 16px rgba(168,85,247,.3);text-align:right;}
-  .balance small{display:block;font-size:8px;letter-spacing:2px;color:#7a7a7a;text-transform:uppercase;font-weight:700;}
-  .balance b{font-size:18px;color:var(--acid);text-shadow:0 0 10px rgba(180,255,0,.5);font-variant-numeric:tabular-nums;font-style:italic;}
-
-  /* заголовок в стиле постера */
-  .headline{text-align:center;line-height:.95;margin:2px 0 4px;}
-  .headline .w{display:block;font-style:italic;font-weight:900;text-transform:uppercase;transform:skewX(-6deg);}
-  .headline .w1{font-size:15px;color:#fff;letter-spacing:2px;-webkit-text-stroke:.5px #444;}
-  .headline .w2{font-size:34px;color:var(--acid);letter-spacing:1px;
-    text-shadow:0 0 22px rgba(180,255,0,.55),0 2px 0 #2a3d00;}
-
-  /* ── Автомат ── */
-  .machine{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:14px;}
-  .cabinet{position:relative;width:100%;max-width:400px;padding:18px;background:var(--panel);
-    border:2px solid var(--acid);
-    clip-path:polygon(18px 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%,0 18px);
-    box-shadow:0 0 30px rgba(180,255,0,.22), inset 0 0 40px rgba(0,0,0,.9);}
-  /* уголки-тики на автомате */
-  .tick{position:absolute;width:14px;height:14px;z-index:2;}
-  .tick.a{top:6px;left:6px;border-top:2px solid var(--acid);border-left:2px solid var(--acid);}
-  .tick.b{top:6px;right:6px;border-top:2px solid var(--acid);border-right:2px solid var(--acid);}
-  .tick.c{bottom:6px;left:6px;border-bottom:2px solid var(--acid);border-left:2px solid var(--acid);}
-  .tick.d{bottom:6px;right:6px;border-bottom:2px solid var(--acid);border-right:2px solid var(--acid);}
-
-  .marquee{display:flex;gap:6px;justify-content:center;margin-bottom:12px;}
-  .bulb{width:8px;height:8px;background:var(--acid);box-shadow:0 0 10px var(--acid);animation:chase 1.1s infinite;}
-  .bulb:nth-child(even){background:var(--purple);box-shadow:0 0 10px var(--purple);}
-  .bulb:nth-child(1){animation-delay:0s}.bulb:nth-child(2){animation-delay:.14s}
-  .bulb:nth-child(3){animation-delay:.28s}.bulb:nth-child(4){animation-delay:.42s}
-  .bulb:nth-child(5){animation-delay:.56s}.bulb:nth-child(6){animation-delay:.7s}.bulb:nth-child(7){animation-delay:.84s}
-  @keyframes chase{0%,100%{opacity:.2;}50%{opacity:1;}}
-
-  .window{position:relative;display:flex;gap:8px;justify-content:center;background:#000;
-    padding:12px;border:1.5px solid var(--line);overflow:hidden;}
-  .reel{position:relative;width:33%;height:264px;overflow:hidden;background:#050705;
-    border:1px solid rgba(180,255,0,.12);}
-  .reel .strip{position:absolute;top:0;left:0;right:0;display:flex;flex-direction:column;align-items:center;will-change:transform;}
-  .sym{height:88px;display:flex;align-items:center;justify-content:center;font-size:52px;
-    filter:drop-shadow(0 0 6px rgba(180,255,0,.25));}
-  .reel.blur .strip{filter:blur(3px);}
-  /* Антиципация: последний барабан «дожимается» медленно, рамка пульсирует. */
-  .reel.anticipate{border-color:var(--acid);box-shadow:0 0 22px rgba(180,255,0,.45) inset,0 0 18px rgba(180,255,0,.35);
-    animation:antic .5s ease-in-out infinite alternate;}
-  @keyframes antic{from{box-shadow:0 0 10px rgba(180,255,0,.25) inset,0 0 10px rgba(180,255,0,.2);}
-    to{box-shadow:0 0 26px rgba(180,255,0,.55) inset,0 0 22px rgba(180,255,0,.45);}}
-  /* Промах впритык: линия дёргается красным. */
-  .reel.nearmiss{animation:nmshake .34s ease 2;border-color:rgba(255,80,80,.6);}
-  @keyframes nmshake{0%,100%{transform:translateX(0);}25%{transform:translateX(-3px);}75%{transform:translateX(3px);}}
-  .window::before,.window::after{content:"";position:absolute;left:0;right:0;height:66px;z-index:3;pointer-events:none;}
-  .window::before{top:0;background:linear-gradient(180deg,#000,transparent);}
-  .window::after{bottom:0;background:linear-gradient(0deg,#000,transparent);}
-
-  .payline{position:absolute;left:6px;right:6px;top:50%;height:2px;transform:translateY(-50%);
-    background:linear-gradient(90deg,transparent,var(--acid),transparent);opacity:0;z-index:4;box-shadow:0 0 14px var(--acid);}
-  .payline.on{animation:plflash .45s ease 4;}
-  @keyframes plflash{0%,100%{opacity:0;}50%{opacity:1;}}
-
-  .winbar{height:24px;text-align:center;font-size:13px;letter-spacing:1px;color:#6f7a63;font-style:italic;font-weight:700;text-transform:uppercase;}
-  .winbar b{color:var(--acid);text-shadow:0 0 12px rgba(180,255,0,.6);font-style:italic;}
-
-  /* ── Кнопки ── */
-  .controls{width:100%;max-width:400px;display:flex;flex-direction:column;gap:10px;align-items:center;}
-  .spin{position:relative;width:100%;padding:20px;border:none;cursor:pointer;
-    background:linear-gradient(135deg,var(--acid),var(--acid-dim));color:#0a0f00;
-    font-family:inherit;font-style:italic;font-weight:900;font-size:22px;letter-spacing:2px;text-transform:uppercase;
-    clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px);
-    box-shadow:0 0 28px rgba(180,255,0,.4);transition:transform .08s ease;transform:skewX(-3deg);}
-  .spin span{display:inline-block;transform:skewX(3deg);}
-  .spin:active{transform:skewX(-3deg) scale(.97);}
-  .spin:disabled{filter:grayscale(.5) brightness(.6);cursor:not-allowed;}
-  .spin small{display:block;font-size:10px;font-weight:700;letter-spacing:1px;opacity:.65;margin-top:3px;}
-
-  .hintline{font-size:11px;color:#5f6a55;letter-spacing:1px;text-align:center;min-height:14px;text-transform:uppercase;font-weight:700;font-style:italic;}
-
-  .claim{width:100%;border:2px solid var(--purple);cursor:pointer;
-    background:linear-gradient(135deg,var(--purple),var(--purple2));color:#fff;
-    font-family:inherit;font-style:italic;font-weight:900;font-size:17px;letter-spacing:1px;text-transform:uppercase;padding:17px;
-    clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px);
-    box-shadow:0 0 26px rgba(168,85,247,.5);display:none;animation:pulseC 1.3s ease-in-out infinite;}
-  @keyframes pulseC{0%,100%{transform:scale(1);}50%{transform:scale(1.03);}}
-  .claim:active{transform:scale(.97);}
-
-  /* ── BIG WIN overlay ── */
-  .overlay{position:fixed;inset:0;z-index:20;display:none;flex-direction:column;align-items:center;justify-content:center;gap:8px;
-    background:radial-gradient(circle at 50% 45%,rgba(10,20,0,.75),rgba(0,0,0,.94));}
-  .overlay.on{display:flex;animation:fade .3s ease;}
-  @keyframes fade{from{opacity:0;}to{opacity:1;}}
-  .bigwin{font-style:italic;font-weight:900;font-size:46px;text-transform:uppercase;letter-spacing:2px;color:var(--acid);
-    text-shadow:0 0 26px rgba(180,255,0,.8);transform:skewX(-6deg);animation:glitch .5s steps(2) 3;}
-  @keyframes glitch{0%{transform:skewX(-6deg) translate(0,0);}
-    25%{transform:skewX(-6deg) translate(-3px,1px);text-shadow:3px 0 var(--purple),-3px 0 var(--acid);}
-    50%{transform:skewX(-6deg) translate(3px,-1px);}
-    100%{transform:skewX(-6deg) translate(0,0);}}
-  .prize{font-style:italic;font-weight:900;font-size:56px;color:#fff;text-shadow:0 0 24px rgba(180,255,0,.9);font-variant-numeric:tabular-nums;}
-  .prize span{font-size:32px;color:var(--acid);}
-  .ovsub{font-size:12px;color:#9aa08f;margin-top:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;font-style:italic;}
-
-  .coin{position:fixed;top:-40px;font-size:24px;z-index:19;pointer-events:none;will-change:transform;}
-</style>
+<link rel="stylesheet" href="css/style.css?v=8">
 </head>
 <body>
   <div class="bg"></div>
@@ -174,33 +20,42 @@
       <div class="balance"><small>Твой бонус</small><b id="bal">0 ₽</b></div>
     </div>
 
-    <div class="headline">
-      <span class="w w1">Заработать</span>
-      <span class="w w2">Здесь и сейчас</span>
-    </div>
-
-    <div class="machine">
-      <div class="cabinet">
-        <span class="tick a"></span><span class="tick b"></span><span class="tick c"></span><span class="tick d"></span>
-        <div class="marquee">
-          <span class="bulb"></span><span class="bulb"></span><span class="bulb"></span>
-          <span class="bulb"></span><span class="bulb"></span><span class="bulb"></span><span class="bulb"></span>
-        </div>
-        <div class="window">
-          <div class="payline" id="payline"></div>
-          <div class="reel"><div class="strip" id="r0"></div></div>
-          <div class="reel"><div class="strip" id="r1"></div></div>
-          <div class="reel"><div class="strip" id="r2"></div></div>
-        </div>
+    <!-- ═══ Экран 1: выбор игры ═══ -->
+    <section class="screen on" id="hub">
+      <div class="headline">
+        <span class="w w1">Выбери игру</span>
+        <span class="w w2">Забери до 3 000 ₽</span>
       </div>
-      <div class="winbar" id="winbar">Крути барабан — деньги ждут</div>
-    </div>
+      <div class="games" id="games"></div>
+      <div class="hintline">3 раунда · бонус растёт с каждым</div>
+    </section>
 
-    <div class="controls">
-      <button class="spin" id="spinBtn"><span>Крутить<small id="spinsLeft">3 спина</small></span></button>
-      <div class="hintline" id="hint">Нажми на кнопку</div>
-      <button class="claim" id="claimBtn">💸 Забрать бонус</button>
-    </div>
+    <!-- ═══ Экран 2: игра ═══ -->
+    <section class="screen" id="game">
+      <div class="gamebar">
+        <button class="back" id="backBtn">‹ Игры</button>
+        <div class="gname" id="gameName"></div>
+        <div class="rounds" id="roundLabel">Раунд 1/3</div>
+      </div>
+
+      <div class="machine">
+        <div class="cabinet">
+          <span class="tick a"></span><span class="tick b"></span><span class="tick c"></span><span class="tick d"></span>
+          <div class="marquee">
+            <span class="bulb"></span><span class="bulb"></span><span class="bulb"></span>
+            <span class="bulb"></span><span class="bulb"></span><span class="bulb"></span><span class="bulb"></span>
+          </div>
+          <div id="stage"></div>
+        </div>
+        <div class="winbar" id="winbar">Играем — деньги ждут</div>
+      </div>
+
+      <div class="controls">
+        <button class="spin" id="actionBtn"><span>Крутить<small id="actionSub">Раунд 1/3</small></span></button>
+        <div class="hintline" id="hint">Нажми на кнопку</div>
+        <button class="claim" id="claimBtn">💸 Забрать бонус</button>
+      </div>
+    </section>
   </div>
 
   <div class="overlay" id="overlay">
@@ -209,206 +64,10 @@
     <div class="ovsub">Бонус зачислен</div>
   </div>
 
-<script>
-/* ═══════════════ Telegram WebApp ═══════════════ */
-const tg = window.Telegram.WebApp;
-tg.ready(); tg.expand();
-try{ tg.setHeaderColor("#000000"); tg.setBackgroundColor("#000000"); }catch(e){}
-
-/* ═══════════════ Настройки ═══════════════ */
-const SYMBOLS=["🍒","🍋","🔔","⭐","💎","7️⃣","💵","💰"];
-const JACKPOT="💰";
-// Символы обычных спинов: 💰 приберегаем строго для финального джекпота.
-const PLAIN=SYMBOLS.filter(s=>s!==JACKPOT);
-// ── Экономика бонуса ──
-// Финальный бонус — взвешенная лотерея: почти все получают 1000-1500 ₽,
-// крупные суммы редки. Так средняя выплата остаётся предсказуемой,
-// а «сорвал 3000» звучит как реальная возможность, а не как обещание всем.
-const JACKPOT_TIERS=[            // [сумма ₽, вес]
-  [1000, 34],
-  [1300, 26],
-  [1500, 20],
-  [2000, 12],
-  [2500,  6],
-  [3000,  2],                    // ~2% — редкий «крупняк», о нём и рассказывают друзьям
-];
-// Мелкие выигрыши первых спинов: нижняя граница 200 ₽.
-// Верх полосы спина 2 ниже минимального джекпота (1000) — лестница не ломается.
-const BANDS=[[200,500],[600,900]];    // ₽: спин 1 и спин 2
-const SPINS=3;                        // третий спин — всегда джекпот
-const SYM_H=88, VISIBLE=3, REEL_LEN=40;
-let spinIndex=0, finished=false, wonAmount=0, spinning=false;
-
-function weightedPick(tiers){
-  const total=tiers.reduce((s,[,w])=>s+w,0);
-  let r=Math.random()*total;
-  for(const [val,w] of tiers){ if((r-=w)<=0) return val; }
-  return tiers[0][0];
-}
-
-// Сумма спина: случайная, кратна 50 — «живые» числа вместо круглых обещаний.
-function amountFor(i){
-  if(i===SPINS-1) return weightedPick(JACKPOT_TIERS);
-  const [lo,hi]=BANDS[i];
-  return Math.round((lo+Math.random()*(hi-lo))/50)*50;
-}
-
-// Значки на линии.
-//   спин 1 — три разных (спокойный старт),
-//   спин 2 — near-miss: два одинаковых + один мимо («чуть не сорвал»),
-//   спин 3 — 💰💰💰.
-function symbolsFor(i){
-  if(i===SPINS-1) return [JACKPOT,JACKPOT,JACKPOT];
-  const pool=PLAIN.slice();
-  for(let k=pool.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[pool[k],pool[j]]=[pool[j],pool[k]];}
-  return i===1 ? [pool[0],pool[0],pool[1]] : pool.slice(0,3);
-}
-
-/* ═══════════════ Звук (Web Audio) ═══════════════ */
-let AC=null;
-function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } return AC; }
-function tone(freq,dur,type="sine",vol=.2,delay=0){
-  const c=ac(); if(!c) return;
-  const o=c.createOscillator(), g=c.createGain();
-  o.type=type; o.frequency.value=freq; o.connect(g); g.connect(c.destination);
-  const t=c.currentTime+delay;
-  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol,t+.01);
-  g.gain.exponentialRampToValueAtTime(.0001,t+dur); o.start(t); o.stop(t+dur);
-}
-function sfxSpin(){ const c=ac(); if(!c) return;
-  const o=c.createOscillator(), g=c.createGain(); o.type="sawtooth";
-  o.frequency.setValueAtTime(120,c.currentTime);
-  o.frequency.exponentialRampToValueAtTime(440,c.currentTime+1.8);
-  g.gain.setValueAtTime(.07,c.currentTime); g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+2.2);
-  o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime+2.2); }
-function sfxStop(){ tone(320,.08,"square",.15); }
-// Ползущий вверх гул под последний барабан + учащающиеся «тики».
-function sfxTension(ms){
-  const c=ac(); if(!c) return;
-  const o=c.createOscillator(), g=c.createGain(); o.type="sawtooth";
-  const t=c.currentTime, d=ms/1000;
-  o.frequency.setValueAtTime(180,t); o.frequency.linearRampToValueAtTime(760,t+d);
-  g.gain.setValueAtTime(.03,t); g.gain.linearRampToValueAtTime(.11,t+d*.85);
-  g.gain.exponentialRampToValueAtTime(.0001,t+d);
-  o.connect(g); g.connect(c.destination); o.start(t); o.stop(t+d);
-  for(let i=0,p=0;p<d-.1;i++){ p+=Math.max(.07,.34-i*.02); tone(1180,.03,"square",.07,p); }
-}
-function sfxNearMiss(){ tone(300,.16,"sawtooth",.14); tone(190,.3,"sawtooth",.12,.12); }
-function sfxWin(){ [523,659,784,1047,1319].forEach((f,i)=>tone(f,.35,"triangle",.22,i*.1)); }
-function sfxCoin(){ tone(880,.06,"sine",.12); tone(1320,.08,"sine",.1,.05); }
-function haptic(t){ try{ tg.HapticFeedback.impactOccurred(t); }catch(e){} }
-function notify(t){ try{ tg.HapticFeedback.notificationOccurred(t); }catch(e){} }
-
-/* ═══════════════ Барабаны ═══════════════ */
-const strips=[document.getElementById("r0"),document.getElementById("r1"),document.getElementById("r2")];
-// Наполнитель ленты — только без 💰: джекпот-символ виден лишь на финале.
-function rnd(){ return PLAIN[Math.floor(Math.random()*PLAIN.length)]; }
-function buildStrip(el,centerSym){
-  el.style.transition="none"; el.style.transform="translateY(0)"; el.innerHTML="";
-  const arr=[]; for(let i=0;i<REEL_LEN;i++) arr.push(rnd());
-  const target=REEL_LEN-2; arr[target]=centerSym; arr[target-1]=Math.random()<.5?centerSym:rnd();
-  arr.forEach(s=>{const d=document.createElement("div");d.className="sym";d.textContent=s;el.appendChild(d);});
-  return target;
-}
-strips.forEach(el=>{el.innerHTML="";for(let i=0;i<VISIBLE+1;i++){const d=document.createElement("div");d.className="sym";d.textContent=rnd();el.appendChild(d);}});
-// anticipate — последний барабан ползёт заметно дольше и с подсветкой:
-// растянутое ожидание перед развязкой держит внимание сильнее самой развязки.
-function spinReel(el,centerSym,duration,anticipate=false){
-  return new Promise(resolve=>{
-    const target=buildStrip(el,centerSym);
-    const finalY=-(target-1)*SYM_H, reel=el.parentElement;
-    reel.classList.add("blur"); el.style.transform="translateY(0)"; void el.offsetHeight;
-    if(anticipate){ reel.classList.add("anticipate"); sfxTension(duration); }
-    const ease=anticipate ? "cubic-bezier(.1,.75,.05,1)" : "cubic-bezier(.15,.85,.25,1.05)";
-    el.style.transition=`transform ${duration}ms ${ease}`;
-    el.style.transform=`translateY(${finalY}px)`;
-    const done=()=>{
-      el.removeEventListener("transitionend",done);
-      reel.classList.remove("blur","anticipate");
-      sfxStop(); haptic("light"); resolve();
-    };
-    el.addEventListener("transitionend",done);
-  });
-}
-
-/* ═══════════════ Логика ═══════════════ */
-const spinBtn=document.getElementById("spinBtn"),claimBtn=document.getElementById("claimBtn"),
-  winbar=document.getElementById("winbar"),hint=document.getElementById("hint"),
-  spinsLeftEl=document.getElementById("spinsLeft"),balEl=document.getElementById("bal"),payline=document.getElementById("payline");
-function updateSpins(){ spinsLeftEl.textContent = spinIndex<SPINS ? ("СПИН "+(spinIndex+1)+"/"+SPINS) : ""; }
-updateSpins();
-
-async function doSpin(){
-  if(spinning||finished||spinIndex>=SPINS) return;
-  spinning=true; spinBtn.disabled=true;
-  hint.textContent="Крутим... удача рядом"; winbar.textContent="🎰 Вращение...";
-  ac(); if(AC&&AC.state==="suspended") AC.resume(); sfxSpin(); haptic("medium");
-  const isLast=spinIndex===SPINS-1, syms=symbolsFor(spinIndex);
-  const nearMiss=syms[0]===syms[1]&&syms[1]!==syms[2];   // два совпали — третий решает
-  await spinReel(strips[0],syms[0],1200);
-  await spinReel(strips[1],syms[1],1700);
-  // Третий барабан всегда «дожимается» дольше: и на джекпоте, и на промахе впритык.
-  winbar.textContent = (isLast||nearMiss) ? "😮 Два совпало... третий решает" : "Крутим...";
-  await spinReel(strips[2],syms[2],isLast?3400:(nearMiss?3000:2200),isLast||nearMiss);
-  if(nearMiss){
-    const reel=strips[2].parentElement;
-    reel.classList.remove("nearmiss"); void reel.offsetWidth; reel.classList.add("nearmiss");
-    sfxNearMiss(); notify("warning");
-    winbar.textContent="😖 Мимо на один символ!";
-    await new Promise(r=>setTimeout(r,850));
-  }
-  payline.classList.remove("on"); void payline.offsetWidth; payline.classList.add("on");
-  // Сумма случайна внутри полосы спина — растёт от спина к спину.
-  wonAmount=amountFor(spinIndex);
-  spinIndex++;
-  updateSpins(); onWin(isLast); spinning=false;
-}
-function onWin(isLast){
-  sfxWin(); notify("success"); coinShower(isLast);
-  winbar.innerHTML="🎉 Выигрыш: <b>"+wonAmount.toLocaleString("ru-RU")+" ₽</b>";
-  countUp(balEl,wonAmount); showBigWin(wonAmount,isLast);
-  if(isLast){
-    // Пик достигнут → открываем CTA + микро-ургентность (loss aversion).
-    spinBtn.style.display="none";
-    hint.innerHTML="⏳ Бонус активен ограниченное время — забери!";
-    claimBtn.style.display="block";
-  }else{
-    // Эскалация: claim ещё ЗАКРЫТ — гоним пройти всю лестницу.
-    hint.textContent = spinIndex===1
-      ? "🔥 Отличный старт! Крути ещё — суммы растут"
-      : "😤 Джекпот был в одном символе! Финальный спин — до 3 000 ₽";
-    spinBtn.disabled=false;
-    const label=spinBtn.querySelector("span").firstChild;
-    if(label) label.textContent="Крутить ещё";
-  }
-}
-const overlay=document.getElementById("overlay"),prize=document.getElementById("prize"),bigwinTitle=document.getElementById("bigwinTitle");
-function showBigWin(amount,isLast){
-  bigwinTitle.textContent = isLast ? "Джекпот" : "Выигрыш";
-  overlay.classList.add("on"); countUp(prize,amount,"<span>₽</span>");
-  setTimeout(()=>overlay.classList.remove("on"),2200);
-}
-function countUp(el,to,suffix=" ₽"){
-  const dur=1000, start=performance.now();
-  function step(now){ const p=Math.min(1,(now-start)/dur);
-    const val=Math.round(to*(1-Math.pow(1-p,3)));
-    el.innerHTML=val.toLocaleString("ru-RU")+suffix;
-    if(p<1){ if(val%500<40) sfxCoin(); requestAnimationFrame(step); } else el.innerHTML=to.toLocaleString("ru-RU")+suffix;
-  } requestAnimationFrame(step);
-}
-function coinShower(isLast){
-  const icons = isLast ? ["💰","💵","💎","⭐"] : ["💵","💎","⭐","✨"];
-  for(let i=0;i<44;i++){
-    const c=document.createElement("div"); c.className="coin"; c.textContent=icons[Math.floor(Math.random()*icons.length)];
-    c.style.left=Math.random()*100+"vw"; c.style.fontSize=(16+Math.random()*20)+"px"; document.body.appendChild(c);
-    const dur=1200+Math.random()*1400, drift=(Math.random()-.5)*160;
-    c.animate([{transform:"translate(0,-40px) rotate(0)",opacity:1},
-      {transform:`translate(${drift}px,105vh) rotate(${Math.random()*720}deg)`,opacity:.15}],
-      {duration:dur,easing:"cubic-bezier(.3,.1,.6,1)"}).onfinish=()=>c.remove();
-  }
-}
-spinBtn.addEventListener("click",doSpin);
-claimBtn.addEventListener("click",()=>{ if(finished) return; finished=true; haptic("medium"); tg.sendData(JSON.stringify({bonus:wonAmount})); tg.close(); });
-</script>
+<script src="js/core.js?v=8"></script>
+<script src="js/slot.js?v=8"></script>
+<script src="js/thimbles.js?v=8"></script>
+<script src="js/chests.js?v=8"></script>
+<script>TP.init();</script>
 </body>
 </html>
