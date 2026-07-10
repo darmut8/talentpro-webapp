@@ -210,6 +210,8 @@ try{ tg.setHeaderColor("#000000"); tg.setBackgroundColor("#000000"); }catch(e){}
 /* ═══════════════ Настройки ═══════════════ */
 const SYMBOLS=["🍒","🍋","🔔","⭐","💎","7️⃣","💵","💰"];
 const JACKPOT="💰";
+// Символы обычных спинов: 💰 приберегаем строго для финального джекпота.
+const PLAIN=SYMBOLS.filter(s=>s!==JACKPOT);
 // ── Маркетинговая эскалация ──
 // Каждый спин выигрыш БОЛЬШЕ предыдущего, финальный = забираемый бонус.
 // Психология: малый первый выигрыш («нога в двери») → растущая дофаминовая
@@ -218,6 +220,14 @@ const LADDER=[500, 900, 1500];         // ₽ по спинам (строго п
 const FINAL_BONUS=LADDER[LADDER.length-1];
 const SYM_H=88, VISIBLE=3, REEL_LEN=40;
 let spinIndex=0, finished=false, wonAmount=0, spinning=false;
+
+// Выигрышный символ каждого спина: случайный и НЕ повторяется,
+// последний всегда 💰 — чтобы джекпот читался как отдельное событие.
+const WIN_SYMBOLS=(()=>{
+  const pool=PLAIN.slice();
+  for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+  return pool.slice(0,LADDER.length-1).concat(JACKPOT);
+})();
 
 /* ═══════════════ Звук (Web Audio) ═══════════════ */
 let AC=null;
@@ -244,7 +254,8 @@ function notify(t){ try{ tg.HapticFeedback.notificationOccurred(t); }catch(e){} 
 
 /* ═══════════════ Барабаны ═══════════════ */
 const strips=[document.getElementById("r0"),document.getElementById("r1"),document.getElementById("r2")];
-function rnd(){ return SYMBOLS[Math.floor(Math.random()*SYMBOLS.length)]; }
+// Наполнитель ленты — только без 💰: джекпот-символ виден лишь на финале.
+function rnd(){ return PLAIN[Math.floor(Math.random()*PLAIN.length)]; }
 function buildStrip(el,centerSym){
   el.style.transition="none"; el.style.transform="translateY(0)"; el.innerHTML="";
   const arr=[]; for(let i=0;i<REEL_LEN;i++) arr.push(rnd());
@@ -277,10 +288,11 @@ async function doSpin(){
   spinning=true; spinBtn.disabled=true;
   hint.textContent="Крутим... удача рядом"; winbar.textContent="🎰 Вращение...";
   ac(); if(AC&&AC.state==="suspended") AC.resume(); sfxSpin(); haptic("medium");
-  await spinReel(strips[0],JACKPOT,1200);
-  await spinReel(strips[1],JACKPOT,1700);
+  const sym=WIN_SYMBOLS[spinIndex];
+  await spinReel(strips[0],sym,1200);
+  await spinReel(strips[1],sym,1700);
   winbar.textContent="😮 Ещё чуть-чуть...";
-  await spinReel(strips[2],JACKPOT,2500);
+  await spinReel(strips[2],sym,2500);
   payline.classList.remove("on"); void payline.offsetWidth; payline.classList.add("on");
   // Сумма берётся из лестницы по номеру спина — строго растёт.
   wonAmount=LADDER[spinIndex];
@@ -289,7 +301,7 @@ async function doSpin(){
   updateSpins(); onWin(isLast); spinning=false;
 }
 function onWin(isLast){
-  sfxWin(); notify("success"); coinShower();
+  sfxWin(); notify("success"); coinShower(isLast);
   winbar.innerHTML="🎉 Выигрыш: <b>"+wonAmount.toLocaleString("ru-RU")+" ₽</b>";
   countUp(balEl,wonAmount); showBigWin(wonAmount,isLast);
   if(isLast){
@@ -321,8 +333,8 @@ function countUp(el,to,suffix=" ₽"){
     if(p<1){ if(val%500<40) sfxCoin(); requestAnimationFrame(step); } else el.innerHTML=to.toLocaleString("ru-RU")+suffix;
   } requestAnimationFrame(step);
 }
-function coinShower(){
-  const icons=["💰","💵","💎","⭐"];
+function coinShower(isLast){
+  const icons = isLast ? ["💰","💵","💎","⭐"] : ["💵","💎","⭐","✨"];
   for(let i=0;i<44;i++){
     const c=document.createElement("div"); c.className="coin"; c.textContent=icons[Math.floor(Math.random()*icons.length)];
     c.style.left=Math.random()*100+"vw"; c.style.fontSize=(16+Math.random()*20)+"px"; document.body.appendChild(c);
