@@ -7,9 +7,11 @@
 "use strict";
 const SHUFFLES=[5,8,12];          // по раундам
 const SWAP_MS=[300,240,190];      // и всё быстрее
-const CUP=`<svg viewBox="0 0 100 110"><use href="#cup"/></svg>`;
-const ICON=`<svg viewBox="0 0 100 110"><use href="#cup"/></svg>`;
-const BALL=`<svg viewBox="0 0 40 40" style="width:34px;height:34px"><use href="#coin"/></svg>`;
+// Старая закешированная оболочка идёт без SVG-спрайта — тогда рисуем emoji.
+const SPRITE=!!document.getElementById("cup");
+const CUP=SPRITE?`<svg viewBox="0 0 100 110"><use href="#cup"/></svg>`:`<span class="emo">🥤</span>`;
+const ICON=CUP;
+const BALL=SPRITE?`<svg viewBox="0 0 40 40" style="width:34px;height:34px"><use href="#coin"/></svg>`:"💰";
 
 TP.game({
   id:"thimbles", icon:ICON, name:"Напёрстки", desc:"Следи за шариком · угадай чашку",

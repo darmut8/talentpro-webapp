@@ -5,16 +5,18 @@
    Крышка откидывается 3D-поворотом (rotateX), а не подменой картинки. */
 (function(){
 "use strict";
-const CHEST=`<span class="chest">
+// Старая закешированная оболочка идёт без SVG-спрайта — тогда рисуем emoji.
+const SPRITE=!!document.getElementById("chestBody");
+const CHEST=SPRITE?`<span class="chest">
     <span class="lid"><svg viewBox="0 0 110 30" preserveAspectRatio="none"><use href="#chestLid"/></svg></span>
     <span class="body"><svg viewBox="0 0 110 60" preserveAspectRatio="none"><use href="#chestBody"/></svg></span>
-  </span>`;
+  </span>`:`<span class="chest emo">📦</span>`;
 // У <use> на symbol размеры задаём явно — иначе символ растянется на весь viewBox.
-const ICON=`<svg viewBox="0 0 110 88">
+const ICON=SPRITE?`<svg viewBox="0 0 110 88">
     <use href="#chestLid" x="0" y="0" width="110" height="30"/>
     <use href="#chestBody" x="0" y="29" width="110" height="59"/>
-  </svg>`;
-const COIN=`<svg viewBox="0 0 40 40" style="width:22px;height:22px;vertical-align:-4px"><use href="#coin"/></svg>`;
+  </svg>`:`<span class="emo">📦</span>`;
+const COIN=SPRITE?`<svg viewBox="0 0 40 40" style="width:22px;height:22px;vertical-align:-4px"><use href="#coin"/></svg>`:"💰";
 
 TP.game({
   id:"chests", icon:ICON, name:"Сундуки", desc:"Три коробки · выбери свою",

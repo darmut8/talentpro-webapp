@@ -117,6 +117,12 @@ const els={};
 const GAMES=[];
 let current=null, roundIdx=0, pending=0, wonAmount=0, busy=false, finished=false;
 
+// Telegram кеширует index.html по URL, а GitHub Pages отдаёт js/css свежими на
+// любой ?v=N. Старая закешированная оболочка тянет новый скрипт: там нет ни
+// fx.js, ни прелоадера. Поэтому ни один элемент не считаем обязательным —
+// иначе падение на первой же строке даёт чёрный экран вместо игры.
+const fx=(name,arg)=>{ try{ if(window.FX&&FX[name]) FX[name](arg); }catch(e){} };
+
 function countUp(el,to,suffix=" ₽"){
   const dur=1000, start=performance.now();
   function step(now){
@@ -168,7 +174,7 @@ const api={
     const isLast=roundIdx===ROUNDS-1;
     wonAmount=pending; roundIdx++; updateRoundLabel();
     sfxWin(isLast); notify("success");
-    FX.burst({count:isLast?110:60, power:isLast?1.35:1, gold:isLast});
+    fx("burst",{count:isLast?110:60, power:isLast?1.35:1, gold:isLast});
     els.winbar.innerHTML="🎉 Выигрыш: <b>"+wonAmount.toLocaleString("ru-RU")+" ₽</b>";
     const bal=els.bal.parentElement;
     bal.classList.remove("bump"); void bal.offsetWidth; bal.classList.add("bump");
@@ -225,6 +231,7 @@ function toHub(){
 
 /* ─────────── Прелоадер ─────────── */
 function runLoader(){
+  if(!els.loader||!els.lfill) return;          // старая оболочка без прелоадера
   let p=0;
   const t=setInterval(()=>{
     p=Math.min(100,p+8+Math.random()*16);
@@ -235,20 +242,28 @@ function runLoader(){
     }
   },90);
 }
+// Что бы ни рухнуло — прелоадер обязан уйти, иначе пользователь видит чёрный экран.
+function unblock(){ if(els.loader) els.loader.classList.add("off"); }
+window.addEventListener("error",unblock);
 
 window.TP={
   game:g=>GAMES.push(g),
   init(){
-    FX.init();
-    buildHub();
-    runLoader();
-    els.backBtn.onclick=toHub;
-    els.claimBtn.onclick=()=>{
-      if(finished||!wonAmount) return;
-      finished=true; haptic("medium");
-      tg.sendData(JSON.stringify({bonus:wonAmount, game:current?current.id:"unknown"}));
-      tg.close();
-    };
+    try{
+      fx("init");
+      buildHub();
+      runLoader();
+      els.backBtn.onclick=toHub;
+      els.claimBtn.onclick=()=>{
+        if(finished||!wonAmount) return;
+        finished=true; haptic("medium");
+        tg.sendData(JSON.stringify({bonus:wonAmount, game:current?current.id:"unknown"}));
+        tg.close();
+      };
+    }catch(e){
+      unblock();
+      throw e;
+    }
   }
 };
 })();
